@@ -14,7 +14,7 @@
 | S3 | 检索：BM25(jieba) → text-embedding-v4(兼容端点) → InMemoryVectorStore → EnsembleRetriever | **hybrid 召回曲线 12/14/16/18(@4/8/12/16)，@16 全收**；bm25 平台 13 / vector 14；仪器 --diag/--sweep 入仓；报告 reports/s1_s3_lc_pipeline.md | 实花 ≈¥0.77 | ✅ 2026-08-17 |
 | S4 | 研究图：supervisor → Send 并行 researcher(动态 Send) → merge → write；MemorySaver；struct_factory 注入缝；单测全 Fake | 真跑 lpz×2（各 ≈¥0.073/30s）：4 方面×16 证据、全局去重编号现形；**财务事实手数 ≈5/6（v3 同司 0/6）**；引用句末化修复实证；聚合句残留转 S5 计量 | 实花 ≈¥0.146 | ✅ 2026-08-17 |
 | S5 | 评测：金标 cases.jsonl + structured-output judge（覆盖/陷阱/引用质标含聚合句计数/忠实度抽样）；防作弊承 argus | **三轮：覆盖 7→11→9（均值 9，全 ≥ v3 7）**；陷阱 0×3；抓获幻觉+装饰引用一例；分节生成后引用 81.8~85.7%/聚合 0/忠实 18/18 三家池满；judge ~120 调用零崩；轮间方差 ±2 入档（录放层价格实测）；报告 reports/s5_e2e_eval.md | 实花 ≈¥0.88 | ✅ 2026-08-17 |
-| S6 | langgraph dev（Studio）demo + README | 全项目 5 分钟讲通 | ¥0 | 未开 |
+| S6 | langgraph dev（Studio）demo + README | Studio 起服探活实测通过（12s/200/杀树干净）；README=60 秒图+三层仪表+撞墙总账六条+数据点名制 v0.2 | ¥0 | ✅ 2026-08-17 |
 
 ## 替代设计（砍 core/eval 后）
 
