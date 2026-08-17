@@ -19,6 +19,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "langgraph-cli[inmem]>=0.4.31",
     "pytest",
     "ruff",
 ]
