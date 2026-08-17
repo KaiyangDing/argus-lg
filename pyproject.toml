@@ -12,6 +12,9 @@ dependencies = [
     "langchain-community>=0.4.2",
     "pypdf>=6.16.1",
     "langchain-text-splitters>=1.1.2",
+    "jieba>=0.42.1",
+    "rank-bm25>=0.2.2",
+    "langchain-classic>=1.0.8",
 ]
 
 [dependency-groups]

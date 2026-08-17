@@ -7,4 +7,5 @@ __pycache__/
 .env
 corpus/raw/
 corpus/derived/documents.jsonl
+corpus/derived/vectors.json
 runtime/
