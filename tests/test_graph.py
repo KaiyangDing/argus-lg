@@ -93,8 +93,9 @@ def test_render_evidence_lines_format() -> None:
 
 
 def test_graph_end_to_end_with_fakes() -> None:
+    # 调用序：小结 r1、小结 r2、节正文 r1、节正文 r2、边界节
     chat = FakeListChatModel(
-        responses=["小结甲。", "小结乙。", "# 测试公司 尽调报告\n营收下降 [1]。"]
+        responses=["小结甲。", "小结乙。", "财务正文 [1]。", "事件正文 [2]。", "边界说明。"]
     )
     factory = scripted_struct_factory(
         {
@@ -124,10 +125,15 @@ def test_graph_end_to_end_with_fakes() -> None:
     assert len(out["evidence"]) == 3  # 3 条查询 3 个不同 chunk，全局编号 1..3
     assert [s["aspect_id"] for s in out["sections"]] == ["r1", "r2"]
     assert out["report"].startswith("# 测试公司 尽调报告")
+    assert "## 财务" in out["report"]
+    assert "财务正文 [1]。" in out["report"]
+    assert "事件正文 [2]。" in out["report"]
+    assert out["report"].endswith("## 证据不足与边界\n边界说明。")
 
 
 def test_graph_zero_evidence_skips_summarize_llm() -> None:
-    chat = FakeListChatModel(responses=["# 空报告"])  # 只留 write 一条，summarize 不许消费
+    # 只留边界节一条响应：summarize 与节正文若偷调 LLM 必因队列耗尽而炸
+    chat = FakeListChatModel(responses=["边界说明。"])
     factory = scripted_struct_factory(
         {
             AspectPlan: [
@@ -147,4 +153,6 @@ def test_graph_zero_evidence_skips_summarize_llm() -> None:
 
     assert all("证据不足" in f["summary"] for f in out["findings"])
     assert out["evidence"] == []
-    assert out["report"] == "# 空报告"  # write 拿到的正是唯一剩下的 Fake 响应
+    assert out["report"].startswith("# 测试公司 尽调报告")
+    assert "证据不足：检索未命中相关语料。" in out["report"]  # 零证据节正文=小结占位
+    assert out["report"].endswith("## 证据不足与边界\n边界说明。")

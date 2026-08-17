@@ -5,7 +5,9 @@
 - fan_out 条件边返回 Send 列表，researcher 单节点并行执行（查询生成→混合检索→小结），
   findings 经 operator.add reducer 汇入父状态，避免并行分支撞 LastValue 通道；
 - merge 按 aspect_id 排序 + 跨方面证据按 chunk_id 去重 + 全局编号；
-- write 只见分节小结与编号证据表，产出 [n] 引用报告。
+- write 分节生成（撞墙⑤处方，2026-08-17 用户拍板）：整篇一次调用面对 50+ 条证据表时
+  引用纪律跨轮振荡（84%→16.7%），改为每节一次小调用、只见本节 ≤16 条证据（保留全局
+  编号），末尾一次小调用补「证据不足与边界」节；零证据节不调 LLM（直接放小结占位）。
 
 检索配置承 S3 曲线结论：每查询 k=12（K_PER_QUERY）、每方面 2~3 查询取并集、
 并集帽 16 条（EVIDENCE_PER_ASPECT）；深池在 SearchFn 内部（retrieval.make_hybrid_search）。
@@ -109,8 +111,9 @@ QUERIES_PROMPT = ChatPromptTemplate.from_messages(
             "human",
             (
                 "研究对象：{company}。研究方面：{name}（关注：{focus}）。"
-                "生成 2~3 条中文检索查询，角度互补；涉财务的方面至少一条包含具体指标词"
-                "（如 营业收入、净利润、同比增减）。"
+                "生成 3 条中文检索查询，角度互补，并覆盖时间维度——至少一条明确含"
+                "「2024 年」、至少一条明确含「2025 年」（语料含近两个年度，只查最新会漏旧年事实）；"
+                "涉财务的方面至少一条包含具体指标词（如 营业收入、净利润、同比增减）。"
             ),
         ),
     ]
@@ -132,23 +135,38 @@ SUMMARIZE_PROMPT = ChatPromptTemplate.from_messages(
     ]
 )
 
-WRITE_PROMPT = ChatPromptTemplate.from_messages(
+WRITE_SECTION_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
             (
-                "你是尽调报告写手。只使用给定证据；每个事实性论断在其句末标注证据编号（如 [3]，"
-                "可多个 [1][4]）；编号必须存在于证据表；证据之外的内容不得出现。"
-                "引用编号只允许出现在论断句的句末——禁止在章节标题、段落开头或任何位置聚合罗列编号。"
+                "你是尽调报告写手，负责撰写报告中的一节。只使用给定证据；"
+                "每个事实性论断在其句末标注证据编号（如 [3]，可多个 [1][4]），"
+                "一句话至多标 3 个编号；编号必须取自本节证据表；证据之外的内容不得出现；"
+                "不要写章节标题，只写正文。"
             ),
         ),
         (
             "human",
             (
-                "公司：{company}\n\n各方面小结：\n{sections}\n\n"
-                "全局证据表（[编号] (来源 p页码) 内容）：\n{evidence}\n\n"
-                "写一份 markdown 尽调报告：一级标题《{company} 尽调报告》，按方面分节，"
-                "结尾加「证据不足与边界」小节如实说明缺口。"
+                "公司：{company}\n本节主题：{name}（研究员小结：{summary}）\n\n"
+                "本节证据表（[编号] (来源 p页码) 内容）：\n{evidence}\n\n写这一节的正文（3~8 句）。"
+            ),
+        ),
+    ]
+)
+
+BOUNDARY_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            "你是尽调报告写手。基于已写成的各节内容如实说明证据缺口；不引入新事实；不标注引用编号。",
+        ),
+        (
+            "human",
+            (
+                "公司：{company}\n\n已写成的报告正文：\n{body}\n\n"
+                "写「证据不足与边界」一节的正文：列出报告提及但证据未量化或未覆盖的关键缺口（3~6 条）。"
             ),
         ),
     ]
@@ -218,14 +236,12 @@ def render_evidence_lines(evidence: Sequence[EvidenceRef], start: int = 1) -> st
     )
 
 
-def render_sections(sections: Sequence[Section]) -> str:
-    # 候选编号放独立提示行、不进标题——放进标题会被 writer 模仿成"章节级聚合引用"
-    # （首次 lpz 真跑实测：r1 标题罗列 [1]..[55]，句末反而无引用）。
-    parts = []
-    for s in sections:
-        refs = "".join(f"[{n}]" for n in s["refs"]) or "（无）"
-        parts.append(f"### {s['name']}\n{s['summary']}\n（本方面候选证据编号：{refs}）")
-    return "\n\n".join(parts)
+def render_evidence_subset(evidence: Sequence[EvidenceRef], refs: Sequence[int]) -> str:
+    """按全局编号渲染本节证据子集（编号保留全局值，跨节引用语义一致）。"""
+    return "\n".join(
+        f"[{n}] ({evidence[n - 1]['source_id']} p{evidence[n - 1]['page']}) {evidence[n - 1]['text']}"
+        for n in sorted(set(refs))
+    )
 
 
 def build_graph(
@@ -285,14 +301,26 @@ def build_graph(
         return {"evidence": evidence, "sections": sections}
 
     def write(state: ResearchState) -> dict[str, object]:
-        msgs = WRITE_PROMPT.invoke(
-            {
-                "company": state["company"],
-                "sections": render_sections(state["sections"]),
-                "evidence": render_evidence_lines(state["evidence"]),
-            }
-        )
-        return {"report": str(chat.invoke(msgs).content)}
+        evidence = state["evidence"]
+        parts: list[str] = [f"# {state['company']} 尽调报告"]
+        for section in state["sections"]:
+            if section["refs"]:
+                msgs = WRITE_SECTION_PROMPT.invoke(
+                    {
+                        "company": state["company"],
+                        "name": section["name"],
+                        "summary": section["summary"],
+                        "evidence": render_evidence_subset(evidence, section["refs"]),
+                    }
+                )
+                body = str(chat.invoke(msgs).content)
+            else:
+                body = section["summary"]  # 零证据节：小结即「证据不足」占位，不烧调用
+            parts.append(f"## {section['name']}\n{body}")
+        draft = "\n\n".join(parts)
+        msgs = BOUNDARY_PROMPT.invoke({"company": state["company"], "body": draft})
+        boundary = str(chat.invoke(msgs).content)
+        return {"report": draft + "\n\n## 证据不足与边界\n" + boundary}
 
     g = StateGraph(ResearchState)
     g.add_node("supervisor", supervisor)

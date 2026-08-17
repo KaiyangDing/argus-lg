@@ -6,6 +6,7 @@
 """
 
 import argparse
+import json
 import time
 from pathlib import Path
 
@@ -14,13 +15,12 @@ from langchain_core.callbacks import UsageMetadataCallbackHandler
 from langchain_core.vectorstores import InMemoryVectorStore
 from langgraph.checkpoint.memory import MemorySaver
 
-from argus_lg.corpus import read_jsonl
+from argus_lg.corpus import COMPANIES, read_jsonl
 from argus_lg.graph import build_graph
 from argus_lg.llm import estimate_yuan, make_chat
 from argus_lg.retrieval import make_embeddings, make_hybrid_search
 
 REPO = Path(__file__).resolve().parent.parent
-COMPANIES = {"lpz": "良品铺子", "yh": "永辉超市", "szss": "三只松鼠"}
 
 
 def main() -> None:
@@ -58,7 +58,11 @@ def main() -> None:
     out = REPO / "runtime" / f"report_{slug}.md"
     out.parent.mkdir(exist_ok=True)
     out.write_text(state["report"] + "\n", encoding="utf-8")
-    print(f"\n已存 {out}")
+    # 证据随报告落盘：S5 忠实度裁判需按编号取被引证据原文
+    (REPO / "runtime" / f"evidence_{slug}.json").write_text(
+        json.dumps(state["evidence"], ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
+    )
+    print(f"\n已存 {out}（含 evidence_{slug}.json）")
 
     total = None
     for model, usage in usage_cb.usage_metadata.items():

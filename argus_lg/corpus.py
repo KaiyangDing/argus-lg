@@ -18,6 +18,8 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+COMPANIES = {"lpz": "良品铺子", "yh": "永辉超市", "szss": "三只松鼠"}
+
 # 中文财报语料的分隔符优先级：段落 > 换行 > 句读 > 空格 > 硬切
 SEPARATORS = ["\n\n", "\n", "。", "；", "，", " ", ""]
 CHUNK_SIZE = 500
