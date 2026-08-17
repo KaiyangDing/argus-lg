@@ -15,13 +15,14 @@ from dotenv import load_dotenv
 from langchain_core.vectorstores import InMemoryVectorStore
 
 from argus_lg.corpus import read_jsonl
+from argus_lg.llm import EMBED_MODEL, PRICES_PER_1K
 from argus_lg.retrieval import make_embeddings, rows_to_documents
 
 REPO = Path(__file__).resolve().parent.parent
 VECTORS = REPO / "corpus" / "derived" / "vectors.json"
 SEGMENT = 500  # 每 500 块 dump 一次：崩溃最多重花一段的钱
 
-PRICE_PER_1K = Decimal("0.0005")
+PRICE_PER_1K = PRICES_PER_1K[EMBED_MODEL][0]
 TOKENS_PER_CHAR = Decimal("0.75")
 
 

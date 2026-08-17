@@ -22,9 +22,10 @@ from langchain_core.retrievers import BaseRetriever
 from langchain_core.vectorstores import InMemoryVectorStore, VectorStoreRetriever
 from langchain_openai import OpenAIEmbeddings
 
-DASHSCOPE_COMPAT_BASE = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-EMBED_MODEL = "text-embedding-v4"
+from argus_lg.llm import DASHSCOPE_COMPAT_BASE, EMBED_MODEL
+
 EMBED_BATCH = 10  # 百炼 embedding 端点单请求条数上限
+HYBRID_POOL = 200  # S3 结论：深池检索再切 top-k，避免 RRF 稀释单路命中
 
 
 def jieba_tokenize(text: str) -> list[str]:
@@ -79,3 +80,29 @@ def build_hybrid(
     bm25: BM25Retriever, vector: BaseRetriever, weights: tuple[float, float] = (0.5, 0.5)
 ) -> EnsembleRetriever:
     return EnsembleRetriever(retrievers=[bm25, vector], weights=list(weights))
+
+
+def make_hybrid_search(
+    rows: list[dict], store: InMemoryVectorStore, pool: int = HYBRID_POOL
+) -> Callable[[str, str, int], list[Document]]:
+    """图用 SearchFn：(query, company_slug, k) -> 深池混合排序切 top-k。
+
+    BM25 索引每公司懒建一次（jieba 分词是大头）；向量与融合按查询现组（轻量）。
+    """
+    docs = rows_to_documents(rows)
+    by_company: dict[str, list[Document]] = {}
+    for d in docs:
+        by_company.setdefault(str(d.metadata["company"]), []).append(d)
+    bm25_cache: dict[str, BM25Retriever] = {}
+
+    def search(query: str, company: str, k: int) -> list[Document]:
+        if company not in by_company:
+            raise ValueError(f"未知公司域：{company}（可选 {sorted(by_company)}）")
+        if company not in bm25_cache:
+            bm25_cache[company] = build_bm25(by_company[company], pool)
+        bm25 = bm25_cache[company]
+        bm25.k = pool
+        hybrid = build_hybrid(bm25, vector_retriever(store, company, pool))
+        return hybrid.invoke(query)[:k]
+
+    return search
