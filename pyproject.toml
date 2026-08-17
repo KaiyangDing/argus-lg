@@ -1,0 +1,36 @@
+[project]
+name = "argus-lg"
+version = "0.1.0"
+description = "Argus 深研引擎的 LangChain + LangGraph 全量重写实验仓"
+requires-python = ">=3.14"
+dependencies = [
+    "langchain-core",
+    "langgraph",
+    "numpy",
+    "python-dotenv",
+    "langchain-openai>=1.5.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["argus_lg"]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+
+[tool.ruff.lint]
+extend-select = ["I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
