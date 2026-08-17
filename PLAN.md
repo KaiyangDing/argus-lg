@@ -10,7 +10,7 @@
 | 步 | 内容 | 验收 | 预估花费 | 状态 |
 |---|---|---|---|---|
 | S1 | 脚手架：uv+py3.14 / ChatOpenAI(兼容端点) 冒烟 / Fake 测试骨架 | 冒烟真调用通；pytest / ruff 绿 | 实花 ≈¥0.0003（两次冒烟） | ✅ 2026-08-17 |
-| S2 | 语料摄取：PyPDFLoader → 切块 → documents.jsonl + sha256 清单 | 块数统计 / 抽样人检 / 金标 18 要点在场率（对照 v3=18/18） | ¥0 | 未开 |
+| S2 | 语料摄取：PyPDFLoader → 切块 → documents.jsonl + sha256 清单 | **18/18 在场**（23/23 文档、5134 块/2.03M 字符；劈半探针 88 块=1.7% 已量化，伤害待 S5 读数） | ¥0 | ✅ 2026-08-17 |
 | S3 | 检索：BM25(jieba) → DashScopeEmbeddings → InMemoryVectorStore → EnsembleRetriever | 金标要点 recall@k 三路对比（BM25/向量/混合） | ≈¥0.8 一次性 | 未开 |
 | S4 | 研究图：supervisor → Send 并行 researcher → merge → write 引用报告；MemorySaver；单测全 Fake | pytest 绿 + 真跑报告人检 | ≈¥0.05/次 | 未开 |
 | S5 | 评测：金标 cases.jsonl + structured-output judge（要点覆盖/陷阱泄漏/引用率） | 三 case 读数 vs argus v3 基线 7/18 | ≈¥0.2/轮 | 未开 |

@@ -9,6 +9,9 @@ dependencies = [
     "numpy",
     "python-dotenv",
     "langchain-openai>=1.5.1",
+    "langchain-community>=0.4.2",
+    "pypdf>=6.16.1",
+    "langchain-text-splitters>=1.1.2",
 ]
 
 [dependency-groups]

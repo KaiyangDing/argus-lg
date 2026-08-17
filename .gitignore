@@ -6,4 +6,5 @@ __pycache__/
 .ruff_cache/
 .env
 corpus/raw/
+corpus/derived/documents.jsonl
 runtime/

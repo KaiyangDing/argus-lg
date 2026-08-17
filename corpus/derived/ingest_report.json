@@ -1,0 +1,126 @@
+{
+ "summary": {
+  "docs_ok": 23,
+  "docs_failed": [],
+  "chunks": 5134,
+  "chars": 2025410,
+  "elapsed_s": 58.7
+ },
+ "docs": {
+  "lpz-ar-2023": {
+   "pages": 198,
+   "chunks": 539,
+   "chars": 216697
+  },
+  "lpz-ar-2024": {
+   "pages": 224,
+   "chunks": 502,
+   "chars": 195595
+  },
+  "lpz-ar-2025": {
+   "pages": 220,
+   "chunks": 491,
+   "chars": 189139
+  },
+  "lpz-news-20241104-oeeee": {
+   "pages": 3,
+   "chunks": 6,
+   "chars": 2224
+  },
+  "lpz-news-20241120-mjw": {
+   "pages": 3,
+   "chunks": 6,
+   "chars": 2664
+  },
+  "lpz-notice-20241105-9889": {
+   "pages": 1,
+   "chunks": 2,
+   "chars": 589
+  },
+  "szss-ar-2023": {
+   "pages": 167,
+   "chunks": 474,
+   "chars": 195293
+  },
+  "szss-ar-2024": {
+   "pages": 185,
+   "chunks": 502,
+   "chars": 200857
+  },
+  "szss-ar-2025": {
+   "pages": 176,
+   "chunks": 460,
+   "chars": 185136
+  },
+  "szss-news-20250506-yema": {
+   "pages": 4,
+   "chunks": 8,
+   "chars": 3373
+  },
+  "szss-news-20250509-xinhua": {
+   "pages": 1,
+   "chunks": 3,
+   "chars": 1178
+  },
+  "szss-notice-20250410-8307": {
+   "pages": 28,
+   "chunks": 96,
+   "chars": 39842
+  },
+  "szss-notice-20250428-1927": {
+   "pages": 2,
+   "chunks": 3,
+   "chars": 1046
+  },
+  "szss-notice-20250526-6961": {
+   "pages": 1,
+   "chunks": 2,
+   "chars": 684
+  },
+  "yh-ar-2023": {
+   "pages": 292,
+   "chunks": 688,
+   "chars": 265833
+  },
+  "yh-ar-2024": {
+   "pages": 285,
+   "chunks": 608,
+   "chars": 234921
+  },
+  "yh-ar-2025": {
+   "pages": 262,
+   "chunks": 611,
+   "chars": 240734
+  },
+  "yh-news-20250116-bjnews": {
+   "pages": 8,
+   "chunks": 21,
+   "chars": 8133
+  },
+  "yh-news-20250425-dzw": {
+   "pages": 3,
+   "chunks": 6,
+   "chars": 2384
+  },
+  "yh-news-20260728-163": {
+   "pages": 4,
+   "chunks": 9,
+   "chars": 3317
+  },
+  "yh-notice-20240928-1128": {
+   "pages": 47,
+   "chunks": 84,
+   "chars": 30902
+  },
+  "yh-notice-20241031-1956": {
+   "pages": 5,
+   "chunks": 8,
+   "chars": 2964
+  },
+  "yh-notice-20250122-3222": {
+   "pages": 3,
+   "chunks": 5,
+   "chars": 1905
+  }
+ }
+}

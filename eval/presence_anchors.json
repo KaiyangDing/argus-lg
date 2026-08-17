@@ -1,0 +1,23 @@
+{
+  "_comment": "金标 must 要点的字面锚点（2026-08-17 从 argus v3 已知好语料人工挖掘的真实表面形态）。组内 OR / 组间 AND（允许不同块）；匹配前双方归一化：小写+去空白+去 ASCII 逗号。",
+  "anchors": [
+    {"case_id": "lpz", "kp_id": "m1", "source": "lpz-ar-2024", "groups": [["7,159,201,563"], ["-11.02"]]},
+    {"case_id": "lpz", "kp_id": "m2", "source": "lpz-ar-2025", "groups": [["5,485,531,786"], ["-23.38", "-23.59"]]},
+    {"case_id": "lpz", "kp_id": "m3", "source": "lpz-ar-2024", "groups": [["46,104,461"]]},
+    {"case_id": "lpz", "kp_id": "m4", "source": "lpz-news-20241104-oeeee", "groups": [["藕粉"], ["酸辣粉"], ["配料表"]]},
+    {"case_id": "lpz", "kp_id": "m5", "source": "lpz-news-20241120-mjw", "groups": [["不成立"], ["市场监管", "市监"]]},
+    {"case_id": "lpz", "kp_id": "m6", "source": "lpz-ar-2025", "groups": [["长江国贸"], ["21.00%", "84,210,000"], ["国有资产监督管理委员会"]]},
+    {"case_id": "yh", "kp_id": "m1", "source": "yh-news-20250425-dzw", "groups": [["675.74", "675.7"], ["14.07"]]},
+    {"case_id": "yh", "kp_id": "m2", "source": "yh-news-20250425-dzw", "groups": [["14.65"], ["亏损"]]},
+    {"case_id": "yh", "kp_id": "m3", "source": "yh-ar-2024", "groups": [["31家门店", "31家门店的调改"], ["调改"], ["胖东来"]]},
+    {"case_id": "yh", "kp_id": "m4", "source": "yh-ar-2024", "groups": [["232家"], ["关闭"]]},
+    {"case_id": "yh", "kp_id": "m5", "source": "yh-ar-2024", "groups": [["广东骏才"], ["第一大股东"]]},
+    {"case_id": "yh", "kp_id": "m6", "source": "yh-news-20260728-163", "groups": [["25.5"], ["381家"]]},
+    {"case_id": "szss", "kp_id": "m1", "source": "szss-ar-2024", "groups": [["10,622,053,469", "106.22亿"], ["49.30"]]},
+    {"case_id": "szss", "kp_id": "m2", "source": "szss-ar-2024", "groups": [["407,736,015"], ["85.51"]]},
+    {"case_id": "szss", "kp_id": "m3", "source": "szss-notice-20250428-1927", "groups": [["联交所"], ["H股", "H 股"]]},
+    {"case_id": "szss", "kp_id": "m4", "source": "szss-notice-20250526-6961", "groups": [["中国证监会"], ["接收"], ["备案"]]},
+    {"case_id": "szss", "kp_id": "m5", "source": "szss-news-20250506-yema", "groups": [["章燎原"], ["创立于2012"]]},
+    {"case_id": "szss", "kp_id": "m6", "source": "szss-ar-2025", "groups": [["10,189,003,026"], ["-4.08"]]}
+  ]
+}

@@ -1,0 +1,117 @@
+{
+ "lpz-ar-2023": {
+  "file": "lpz/lpz-ar-2023.pdf",
+  "sha256": "2e02009d1e3816179d18bae0fff9ccacab334c341599b29b165f3fe6db678565",
+  "bytes": 4157752
+ },
+ "lpz-ar-2024": {
+  "file": "lpz/lpz-ar-2024.pdf",
+  "sha256": "6ed56e36b762708f9d1fa550a9ce9bc08c1f916c7377f3d7716077bcf5798697",
+  "bytes": 1549162
+ },
+ "lpz-ar-2025": {
+  "file": "lpz/lpz-ar-2025.pdf",
+  "sha256": "76d26472ac24fcf7f306d0ca86a425a240938d6894e9398d283e6e3228bcba02",
+  "bytes": 1820211
+ },
+ "lpz-news-20241104-oeeee": {
+  "file": "lpz/lpz-news-20241104-oeeee.pdf",
+  "sha256": "2dae51b32bedcb609c6dc61eb18b5e358ad8f7976b2df22d9b0e5f3367dbb858",
+  "bytes": 210541
+ },
+ "lpz-news-20241120-mjw": {
+  "file": "lpz/lpz-news-20241120-mjw.pdf",
+  "sha256": "6aaff9c8b93a98872f9b6b477346f6f2ee896e451442865bd3a61df139d8e91e",
+  "bytes": 278877
+ },
+ "lpz-notice-20241105-9889": {
+  "file": "lpz/lpz-notice-20241105-9889.pdf",
+  "sha256": "9c55099326850347dca0722bb2b73ab5e49c7278f7b5101785133ce946e8ee01",
+  "bytes": 185734
+ },
+ "szss-ar-2023": {
+  "file": "szss/szss-ar-2023.pdf",
+  "sha256": "8b1c46de5ef4bb08986eb7d9f6085e93582546f89b5cf031e0768b8b9df8bec3",
+  "bytes": 2878615
+ },
+ "szss-ar-2024": {
+  "file": "szss/szss-ar-2024.pdf",
+  "sha256": "67bea3a75d37a9f884102f0b483c38489ae3dda307da32ab9dc7426c83212d94",
+  "bytes": 3154273
+ },
+ "szss-ar-2025": {
+  "file": "szss/szss-ar-2025.pdf",
+  "sha256": "cac5aad6a29b96f1c408f2affc170dc045f64c83f08c2dd7cf7d19d85946e508",
+  "bytes": 1369510
+ },
+ "szss-news-20250506-yema": {
+  "file": "szss/szss-news-20250506-yema.pdf",
+  "sha256": "65d895090ba6d769fd2f33eb60dcef0dd83476c1b59f375b0301d9c6c3d773c9",
+  "bytes": 321219
+ },
+ "szss-news-20250509-xinhua": {
+  "file": "szss/szss-news-20250509-xinhua.pdf",
+  "sha256": "83b8f54f3820da8d99c48e70ebe36c681e76f2c29241719e1062b1651ea62c72",
+  "bytes": 174406
+ },
+ "szss-notice-20250410-8307": {
+  "file": "szss/szss-notice-20250410-8307.pdf",
+  "sha256": "e136b33c8fa81791c48c535f8eb77671c9c50a7b18b62ce5498682c4f039aae0",
+  "bytes": 581483
+ },
+ "szss-notice-20250428-1927": {
+  "file": "szss/szss-notice-20250428-1927.pdf",
+  "sha256": "81f0f36f5dbc6f9872e61e6cbc7246fedf03de2087de2a0704394d0cdbd591f6",
+  "bytes": 247352
+ },
+ "szss-notice-20250526-6961": {
+  "file": "szss/szss-notice-20250526-6961.pdf",
+  "sha256": "7d22270f72839bb4c76570d61eac63c427dd0acef9cd69760946f2d3f4632a2a",
+  "bytes": 381787
+ },
+ "yh-ar-2023": {
+  "file": "yh/yh-ar-2023.pdf",
+  "sha256": "e42dc09dd459be4b3b3f5b99915add27be9ea0b0c94cb55bf82b590538b5669e",
+  "bytes": 5730057
+ },
+ "yh-ar-2024": {
+  "file": "yh/yh-ar-2024.pdf",
+  "sha256": "236f6dee2ca9ef7d355e2fa2654e071a9a18ad7c358167a9864a878c95722eac",
+  "bytes": 1788312
+ },
+ "yh-ar-2025": {
+  "file": "yh/yh-ar-2025.pdf",
+  "sha256": "8911349483454b538fe505e669a05bb4110c84e053ab74eeb9a04f8a607c9e9c",
+  "bytes": 2109350
+ },
+ "yh-news-20250116-bjnews": {
+  "file": "yh/yh-news-20250116-bjnews.pdf",
+  "sha256": "0472646310ab0389e6778640068f684a027cc3b7975625b7d176638eba0250c2",
+  "bytes": 465740
+ },
+ "yh-news-20250425-dzw": {
+  "file": "yh/yh-news-20250425-dzw.pdf",
+  "sha256": "c894034423af785e9a33256adcb01b1d95df83afa3b41a8afaac3fd70bef8106",
+  "bytes": 225198
+ },
+ "yh-news-20260728-163": {
+  "file": "yh/yh-news-20260728-163.pdf",
+  "sha256": "e775f62e6a5b422007b9c72bade30c76d83976f780d0213b0a4bf6fb6d4db3a1",
+  "bytes": 269018
+ },
+ "yh-notice-20240928-1128": {
+  "file": "yh/yh-notice-20240928-1128.pdf",
+  "sha256": "d1e9c35e2157637b8b37b447d9aece97a95e09df67d242269640140de515029e",
+  "bytes": 2595317
+ },
+ "yh-notice-20241031-1956": {
+  "file": "yh/yh-notice-20241031-1956.pdf",
+  "sha256": "e146e86cdd791ee8e65a20f063fd3f3dae1aa5436437958162afe62d06eca0a6",
+  "bytes": 652062
+ },
+ "yh-notice-20250122-3222": {
+  "file": "yh/yh-notice-20250122-3222.pdf",
+  "sha256": "48b7e7ae852e556f81da4b36cf72e77e7b4e3850b577fe54d17e9df6b8a66d7d",
+  "bytes": 414561
+ }
+}
