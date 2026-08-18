@@ -12,7 +12,14 @@ import sys
 import time
 from pathlib import Path
 
-from argus_lg.corpus import build_manifest, chunks_to_rows, load_pdf_pages, split_pages, write_jsonl
+from argus_lg.corpus import (
+    annotate_page_sections,
+    build_manifest,
+    chunks_to_rows,
+    load_pdf_pages,
+    split_pages,
+    write_jsonl,
+)
 
 REPO = Path(__file__).resolve().parent.parent
 RAW = REPO / "corpus" / "raw"
@@ -38,6 +45,7 @@ def main() -> None:
             report[source_id] = {"error": f"{type(exc).__name__}: {exc}"}
             print(f"[FAIL] {source_id}: {exc}", file=sys.stderr)
             continue
+        annotate_page_sections(pages)
         chunks = split_pages(pages)
         rows = chunks_to_rows(chunks)
         all_rows.extend(rows)

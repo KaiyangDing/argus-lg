@@ -14,6 +14,7 @@ from argus_lg.corpus import (
     CHUNK_SIZE,
     build_manifest,
     chunks_to_rows,
+    corpus_profile,
     read_jsonl,
     sha256_file,
     split_pages,
@@ -69,6 +70,41 @@ def test_split_pages_contract() -> None:
         assert c.metadata["company"] == "t"
     assert chunks[0].metadata["page"] == 1
     assert chunks[-1].metadata["page"] == 2
+
+
+def test_annotate_page_sections_carries_headers_across_pages() -> None:
+    from argus_lg.corpus import annotate_page_sections
+
+    p1 = Document(page_content="某年报\n母公司资产负债表\n资产：", metadata={})
+    p2 = Document(page_content="存货 10,751,508.64", metadata={})  # 表头在前页
+    p3 = Document(page_content="5、应收账款\n(1).按账龄披露", metadata={})
+    p4 = Document(page_content="合计 259,209,498.08", metadata={})
+    annotate_page_sections([p1, p2, p3, p4])
+    assert p1.metadata["section"] == ""  # 进入首页前无运行头
+    assert p2.metadata["section"] == "母公司资产负债表"
+    assert p3.metadata["section"] == "母公司资产负债表"
+    assert p4.metadata["section"].startswith("5、应收账款")
+
+
+def test_corpus_profile_data_driven() -> None:
+    rows = [
+        {"company": "t", "source_id": "t-ar-2024", "text": "x"},
+        {"company": "t", "source_id": "t-ar-2024", "text": "y"},
+        {"company": "t", "source_id": "t-news-20231104-src", "text": "z"},
+        {"company": "other", "source_id": "o-ar-2025", "text": "w"},  # 他司不入
+    ]
+    profile = corpus_profile(rows, "t")
+    assert "可用文档 2 份" in profile
+    assert "t-ar-2024（年报，2024）" in profile
+    assert "t-news-20231104-src（新闻，2023）" in profile
+    assert "覆盖年份：2023、2024" in profile
+    assert "最新年份：2024" in profile
+    assert "2025" not in profile  # 年份来自本司语料实况，不带先验
+
+    assert corpus_profile(rows, "ghost") == "该公司暂无语料。"
+
+    no_year = corpus_profile([{"company": "t", "source_id": "merger_deck", "text": "x"}], "t")
+    assert "未知" in no_year  # 无法解析年份时提示先探明，不瞎猜
 
 
 def test_jsonl_round_trip(tmp_path: Path) -> None:

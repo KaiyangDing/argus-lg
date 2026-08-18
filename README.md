@@ -1,52 +1,58 @@
 # argus-lg
 
-**用 LangChain 生态原生件全链重写多 Agent 深度研究引擎 [Argus](../argus) 的对照实验仓。**
-命题：不写一行自研基础设施（解析/切块/检索/录放/评测闸门全用生态件或砍掉），这套系统能走多远、会在哪里撞墙、每面墙值多少钱。代码零复制；语料（23 份 PDF）与金标题库（3 case × 6 must + 2 trap，人工标注）为复用数据资产。撞墙即实验数据——完整记录见 [PLAN.md](PLAN.md) 撞墙与替换记录①~⑥。
+**用 LangChain 生态件构建多 Agent 深度尽调引擎的两阶段实验仓。**
 
-## 60 秒看懂
+- **v0.1（tag `v0.1`）**：不写一行自研基础设施，LC 原生件全链重写 [Argus](../argus) 引擎——六步收口，回答"通用件能走多远、会在哪撞墙、每面墙值多少钱"。
+- **v0.2（[开发全记录](reports/v02_devlog.md)）**：评审驱动迭代，把报告从几百字事实罗列推到 **6000~9000 字三层专业研报**——质量主仪器换成研报评分卡材料评审，金标评测降级为防幻觉底线闸门，四轮迭代 + 工程问题账 10 条全闭环。
+
+语料（23 份 PDF）与金标（3 公司 × 6 must + 2 trap，人工标注）复用自 Argus；代码零复制。
+
+## 60 秒看懂（v0.2 终态）
 
 ```mermaid
 flowchart LR
-    subgraph 语料层S2["语料层 S2"]
-        PDF[23 份 PDF] --> L[PyPDFLoader] --> SP[RecursiveCharacterTextSplitter<br>中文分隔符 500/50] --> C[5134 块<br>documents.jsonl]
+    subgraph 语料层["语料层"]
+        PDF[23 份 PDF] --> L[PyPDFLoader] --> SP[中文递归切块 500/50] --> C[5134 块<br>+跨页章节面包屑]
     end
-    subgraph 检索层S3["检索层 S3"]
-        C --> B[BM25Retriever<br>jieba 分词]
+    subgraph 检索层["检索层"]
+        C --> B[BM25+jieba]
         C --> V[text-embedding-v4<br>InMemoryVectorStore]
-        B --> H[EnsembleRetriever<br>RRF · 深池 200]
+        B --> H[RRF 混合 · 深池200]
         V --> H
     end
-    subgraph 研究图S4["研究图 S4 · langgraph"]
-        S[supervisor<br>结构化拆解] -->|Send ×N 并行| R[researcher<br>双年份查询×3 → k12 并集帽16 → 小结]
-        R --> M[merge<br>跨方面去重全局编号] --> W[write 分节生成<br>句末引用 + 边界节]
+    subgraph 研究图["研究图 · langgraph"]
+        S[supervisor<br>五维框架+关键问题] -->|Send ×N| R[researcher ×N 并行<br>查询→检索→备忘录消化→缺口自评 ≤3轮]
+        R --> M[merge<br>同名归并+全局编号] --> RV[review<br>复审补派 ≤2] -->|补研| R
+        RV --> W[write<br>一致性核对→分节三层→<br>要点/关联/风险/边界]
     end
-    H -.SearchFn 注入.-> R
+    H -.SearchFn.-> R
 ```
 
-评测（S5）：金标 judge（structured output）+ 纯正则引用质标 + 忠实度抽样，防作弊四重承 Argus（金标先行 / 输入白名单 / quote 在场校验 / 陷阱要点）。
+韧性层：请求级 timeout 120s ＋ 节点级 `RetryPolicy` ＋ 结构化输出 `RetryingStruct`（空返回重试+催办注入）。
 
-## 读数（三层仪表，全部可复跑）
+## 读数（全部可复跑）
 
-| 层 | 指标 | argus-lg | 对照（argus v3：MinerU 解析 + 自研词频检索） |
-|---|---|---|---|
-| 语料 | 金标 18 要点在场率 | **18/18**（pypdf 纯 CPU 58.7s） | 18/18（MinerU GPU 60.7 分钟） |
-| 检索 | 金标召回 recall@k（混合） | 12 / 14 / 16 / **18**（@4/8/12/16）；单路平台：BM25 13、向量 14 | ——（v3 无此层仪表；词频检索为端到端瓶颈） |
-| 端到端 | 要点覆盖（三轮） | **7 → 11 → 9，均值 9**（轮间方差 ±2，见撞墙⑥） | 7/18（单轮，cassette 钉死） |
-| 端到端 | 引用率 / 聚合句 / 越界 | **83.3% / 0 / 0**（分节生成后，三家 81.8~85.7%） | 76.1% |
-| 端到端 | 忠实度抽样 / 陷阱泄漏 | **18/18 / 0**（三轮陷阱均 0） | 100% / 0 |
-
-关键叙事：v3 的 lpz 0/6（财务数字类全灭）在本仓稳定 4~5/6——**混合检索按曲线配 k 的钱到账**；覆盖对外口径钉三轮均值，不摘单轮最高。
-
-## 撞墙与替换总账（本仓主产出）
-
-| # | 墙 | 裁决与结果 |
+| 层 | 指标 | 读数 |
 |---|---|---|
-| ① | `ChatTongyi` 无标准 usage_metadata；langchain-community 整包日落 | 换 `langchain-openai` + 阿里官方兼容端点；控费=usage 折 ¥ 打印+花钱命令人工触发 |
-| ② | BM25 默认空白切词毁中文；OpenAIEmbeddings tiktoken 预编码不容第三方端点；RRF 稀释单路命中 | jieba 挂 preprocess_func；`check_embedding_ctx_length=False`；深池 200 再切 top-k（曲线实测 @16 全收） |
-| ③ | writer 引用聚堆（标题聚合 [1]..[55]） | render 不把编号放标题 + 句末硬约束，二跑实证回归 |
-| ④ | writer 幻觉+装饰性引用（「监管警示」全语料无此事实，引退市样板页） | 忠实度指标+机检独立命中；非确定性（次轮自消）——每轮必跑指标的理由 |
-| ⑤ | 引用纪律 prompt-only 不稳定（同 prompt 三形态振荡，84%→16.7%） | **write 分节生成**（每节小调用只见 ≤16 条证据）：三家 81.8~85.7%、聚合归零、忠实度池全满 |
-| ⑥ | 覆盖轮间方差 ±2（temperature=0 不救） | 无录放层=每轮评随机样本；**cassette 的价格首次实测标出**（不带 core 的裁决不变）；对外口径=三轮均值 |
+| 语料 | 金标 18 要点在场率 | **18/18**（pypdf 纯 CPU 58.7s；对照 v3 MinerU GPU 60.7 分钟同分） |
+| 检索 | 金标召回曲线（混合，@4/8/12/16） | 12/14/16/**18**；单路平台 BM25 13、向量 14——k 是主杠杆 |
+| 端到端 v0.1 | 要点覆盖三轮 | 7→11→9（均值 9，超 v3 基线 7；轮间方差 ±2 如实入档） |
+| **端到端 v0.2** | 要点覆盖 / 陷阱 / 越界 / 忠实度 | **13/18（历史最高）/ 0×3 / 0 / 15/18**；报告 6000~9000 字三层结构 |
+
+## 撞墙总账（实验主产出；v0.2 完整版见 [devlog](reports/v02_devlog.md)）
+
+| 墙 | 裁决 |
+|---|---|
+| langchain-community 日落、ChatTongyi 无标准用量 | ChatOpenAI + 阿里官方兼容端点 |
+| BM25 默认空白分词毁中文；tiktoken 预编码不容第三方端点；RRF 浅池稀释 | jieba 挂载；`check_embedding_ctx_length=False`；深池 200 再切 top-k |
+| **百炼 json_schema 约束解码在三层嵌套 schema 上服务端挂死**（30 分钟黑洞→timeout 定位→对照实验定罪 46.5s vs 10.7s） | 图内结构化输出一律 `function_calling` |
+| **function_calling 拒调且对特定输入粘性**（同输入三连拒） | 空返回重试 + 第二次起注入催办消息扰动输入 |
+| 单点 API 故障杀全跑；客户端默认 600s 超时放大事故 | timeout=120s + 节点级 `RetryPolicy`（v1 自研重试组件的框架替代） |
+| 引用纪律 prompt-only 不稳定（84%↔16.7% 振荡） | write 分节生成：单窗证据有界，多轮消化替代大窗投喂 |
+| **数字语义错配（在场≠正确）**：非经常损益合计当现金流、季度行当全年、母公司表当合并、担保比例当负债率 | 表源纪律 prompt + 跨页章节面包屑（免重嵌：只进 metadata 与证据渲染）+ 写作前一致性核对 pass |
+| **表列对齐错配（天花板）**：收入/成本/毛利率三列被读成年份对比——pypdf 压扁列对齐，prompt/架构层无解 | **通用解析件极限实测触达；处方=结构化表格解析——argus-platform 冻结 mineru-api 契约的最终实证** |
+
+另有：验证器自身的切片预览偏差（一次错误定罪的公开更正）、硬编码年份（数据驱动语料概况修复）、评测轮间方差（=录放层价格实测）——全账见 devlog 与 [PLAN](PLAN.md)。
 
 ## 快速开始
 
@@ -54,54 +60,42 @@ flowchart LR
 
 ```
 uv sync
-uv run pytest          # 32 项，全 Fake 零网络
+uv run pytest          # 38 项，全 Fake 零网络
 ```
 
-花钱序列（复制 `.env.example` 为 `.env` 填百炼 key；金额为实测量级）：
+花钱序列（`.env.example` → `.env` 填百炼 key；金额为实测量级）：
 
 ```
-uv run python scripts/ingest.py            # 解析切块，¥0
+uv run python scripts/ingest.py            # 解析切块+章节面包屑，¥0
 uv run python scripts/check_presence.py    # 在场率 18/18，¥0
 uv run python scripts/embed.py             # 全量向量化 ≈¥0.76，分段可续跑
 uv run python scripts/eval_retrieval.py --sweep 4,8,12,16   # 召回曲线 ≈¥0.001
-uv run python scripts/run_graph.py lpz     # 整图真跑出报告 ≈¥0.09
-uv run python scripts/eval_reports.py      # 端到端评测 ≈¥0.07/轮
+uv run python scripts/run_graph.py lpz     # v0.2 深度报告 ≈¥1.2/次、~12 分钟
+uv run python scripts/eval_reports.py      # 三家底线闸门 ≈¥0.4/轮
+uv run langgraph dev                       # Studio 可视化（起服零调用）
 ```
-
-可视化 demo（LangGraph Studio，生态原生调试器）：
-
-```
-uv run langgraph dev
-```
-
-打开打印的 Studio URL，Input 填 `{"company": "良品铺子", "slug": "lpz"}`，可视化观察 supervisor 拆解、Send 并行分支与逐节点状态。
 
 ## 代码地图
 
 ```
 argus_lg/
-  corpus.py      语料摄取（loader/切块/manifest/jsonl）
-  presence.py    金标在场率（锚点匹配，S2 仪表）
-  retrieval.py   BM25+向量+RRF 混合、SearchFn 工厂（S3）
-  graph.py       研究图与全部 prompt（S4）
-  eval.py        端到端评测四指标（S5）
-  llm.py         模型接入与价目单一事实源
+  corpus.py      语料摄取 + 跨页章节面包屑 + 语料概况（产品对接缝）
+  presence.py    金标在场率（锚点匹配）
+  retrieval.py   BM25+向量+RRF 深池、SearchFn 工厂（含面包屑回贴）
+  prompts.py     v0.2 专业提示词套件（尽调框架/检索策略/表源纪律/研报文体）+ 结构化模型
+  graph.py       研究图（多轮 researcher/复审补派/分节三层写作）+ RetryingStruct
+  eval.py        底线闸门四指标（防作弊：quote 在场校验/陷阱金标/聚合句计数）
+  llm.py         模型接入与价目单一事实源（timeout/重试钉死）
   studio.py      langgraph dev 入口
-scripts/         每层一个薄 CLI（上表六件）
+scripts/         每层一个薄 CLI（上表七件）
 eval/            金标 cases.jsonl + 在场锚点 presence_anchors.json（数据资产）
-reports/         s1_s3 管线报告 · s5 三轮评测报告
-tests/           32 项，全 Fake（无 cassette 的测试策略：编排逻辑可测，模型行为靠指标）
+reports/         s1_s3 管线报告 · s5 三轮评测（含更正注）· v0.2 开发全记录
+tests/           38 项全 Fake（无 cassette 的测试策略：编排可测，模型行为靠指标+材料评审）
 ```
 
 ## 已知边界（如实入档）
 
-- 覆盖轮间方差 ±2：计划/查询层非确定级联，单轮读数不足为凭（撞墙⑥）。
-- pypdf 深层合并表劈半病 88/5134=1.7%：未伤金标锚点与忠实度读数，但存在。
-- szss 的 H 股公告类要点（m3/m4/m5）覆盖不稳：方面拆解未必生成「上市进程」主题，属计划层盲区。
-- 全项目 API 实花 ≈¥1.79（S1~S5 累计，含三轮评测与九次整图真跑）。
-
-## v0.2 候选（数据点名制：指标不点名不动工）
-
-1. 计划/查询钉板或多轮采样评测——治撞墙⑥方差。
-2. researcher 反思循环（条件回边+轮数上限）——触发条件：覆盖 miss 中出现"检索可及但查询没问到"类。
-3. supervisor 复审补派——触发条件：系统性方面盲区（szss H 股类是候选证据）。
+- **表列对齐**：通用解析件固有极限（见撞墙总账末条），报表深层数字须以「口径待核」态度读；根治在结构化解析层。
+- 轮间方差：温度 0 不保证跨轮一致，单轮读数差异 ≤2 不足为凭；评审与对外口径按多轮看待。
+- 引用率语义随报告形态变化：长分析段密度天然低于短事实句（62% vs v0.1 的 83%），硬指标（越界 0/陷阱 0）不变。
+- v0.1 全程 ≈¥1.79；v0.2 全程 ≈¥8.0（含 ≈¥1.1 失败跑学费，每笔学费换一条问题账）。

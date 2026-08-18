@@ -23,6 +23,10 @@ def make_chat(model: str = CHAT_MODEL, temperature: float = 0.0) -> ChatOpenAI:
         base_url=DASHSCOPE_COMPAT_BASE,
         api_key=os.environ["DASHSCOPE_API_KEY"],
         temperature=temperature,
+        # 黑洞请求事故（v0.2 首跑 30 分钟单连接空转）后钉死：默认 600s 超时会把
+        # 服务端拖死的请求放大成半小时黑洞——快速失败，错误可见（devlog 工程问题账）。
+        timeout=120.0,
+        max_retries=2,
     )
 
 

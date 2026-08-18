@@ -94,6 +94,9 @@ def make_hybrid_search(
     for d in docs:
         by_company.setdefault(str(d.metadata["company"]), []).append(d)
     bm25_cache: dict[str, BM25Retriever] = {}
+    # 章节面包屑来自最新 documents.jsonl；向量库 dump 的 metadata 是旧快照，
+    # 检索结果统一回贴 section（免重嵌的关键：面包屑不进 embedding 文本）
+    section_map = {str(r["chunk_id"]): str(r.get("section", "")) for r in rows}
 
     def search(query: str, company: str, k: int) -> list[Document]:
         if company not in by_company:
@@ -103,6 +106,10 @@ def make_hybrid_search(
         bm25 = bm25_cache[company]
         bm25.k = pool
         hybrid = build_hybrid(bm25, vector_retriever(store, company, pool))
-        return hybrid.invoke(query)[:k]
+        out = hybrid.invoke(query)[:k]
+        for doc in out:
+            cid = str(doc.metadata.get("chunk_id", ""))
+            doc.metadata["section"] = section_map.get(cid, doc.metadata.get("section", ""))
+        return out
 
     return search

@@ -12,7 +12,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from langchain_core.vectorstores import InMemoryVectorStore
 
-from argus_lg.corpus import read_jsonl
+from argus_lg.corpus import corpus_profile, read_jsonl
 from argus_lg.graph import build_graph
 from argus_lg.llm import make_chat
 from argus_lg.retrieval import make_embeddings, make_hybrid_search
@@ -25,4 +25,8 @@ _store = InMemoryVectorStore.load(
     str(_REPO / "corpus" / "derived" / "vectors.json"), make_embeddings()
 )
 
-graph = build_graph(make_chat(), make_hybrid_search(_rows, _store)).compile()
+graph = build_graph(
+    make_chat(),
+    make_hybrid_search(_rows, _store),
+    profile_fn=lambda s: corpus_profile(_rows, s),
+).compile()

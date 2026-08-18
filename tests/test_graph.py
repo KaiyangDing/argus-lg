@@ -1,7 +1,7 @@
-"""研究图：纯函数面 + 全 Fake 端到端（零网络零成本）。
+"""研究图 v0.2：纯函数面 + 全 Fake 端到端（多轮 researcher / 复审补派 / 分层写作）。
 
-结构化出口经 scripted_struct_factory 注入脚本答案；自由文本走 FakeListChatModel；
-检索走合成 SearchFn。真实模型行为由 scripts/run_graph.py 人工冒烟验收（PLAN 设计题 2）。
+同步执行下并行任务按提交序依次运行，struct 队列消费顺序确定：
+r1 全流程 → r2 全流程 → … → merge → review → (补派) → write。
 """
 
 from collections import deque
@@ -12,19 +12,17 @@ from langchain_core.language_models import FakeListChatModel
 from pydantic import BaseModel
 
 from argus_lg.graph import (
-    AspectPlan,
-    AspectSpec,
-    QueryList,
     assign_aspect_ids,
     build_graph,
+    map_memo_refs,
     merge_findings,
-    render_evidence_lines,
-    union_evidence,
+    render_by_chunk_id,
+    render_evidence_subset,
 )
+from argus_lg.prompts import AspectPlan, AspectSpec, QueryList, Reflection, ReviewVerdict
 
 
 def scripted_struct_factory(script: dict[type[BaseModel], list[BaseModel]]):
-    """按模型类排队吐预设实例；跨节点调用共享队列。"""
     queues = {cls: deque(items) for cls, items in script.items()}
 
     class Scripted:
@@ -34,7 +32,12 @@ def scripted_struct_factory(script: dict[type[BaseModel], list[BaseModel]]):
         def invoke(self, _input: object) -> BaseModel:
             return queues[self._cls].popleft()
 
+    Scripted.queues = queues  # type: ignore[attr-defined]  # 供测试断言队列耗尽
     return Scripted
+
+
+def _spec(name: str) -> AspectSpec:
+    return AspectSpec(name=name, focus=f"{name}目标", key_questions=[f"{name}问1", f"{name}问2"])
 
 
 def _doc(cid: str, text: str) -> Document:
@@ -44,20 +47,22 @@ def _doc(cid: str, text: str) -> Document:
     )
 
 
-def test_assign_aspect_ids_clamps_and_numbers() -> None:
-    plan = AspectPlan(aspects=[AspectSpec(name=f"a{i}", focus="f") for i in range(7)])
+def test_assign_aspect_ids_clamps_numbers_and_prefixes() -> None:
+    plan = AspectPlan(aspects=[_spec(f"a{i}") for i in range(7)])
     aspects = assign_aspect_ids(plan)
     assert [a["aspect_id"] for a in aspects] == ["r1", "r2", "r3", "r4", "r5"]
+    assert aspects[0]["key_questions"] == ["a0问1", "a0问2"]
+
+    follow = assign_aspect_ids(AspectPlan(aspects=[_spec("补")]), prefix="f")
+    assert follow[0]["aspect_id"] == "f1"  # followup 前缀不受 MIN_ASPECTS 限制
 
     with pytest.raises(ValueError, match="不足"):
-        assign_aspect_ids(AspectPlan(aspects=[AspectSpec(name="唯一", focus="f")]))
+        assign_aspect_ids(AspectPlan(aspects=[_spec("唯一")]))
 
 
-def test_union_evidence_dedups_and_caps() -> None:
-    q1 = [_doc("c1", "一"), _doc("c2", "二")]
-    q2 = [_doc("c2", "二"), _doc("c3", "三"), _doc("c4", "四")]
-    out = union_evidence([q1, q2], cap=3)
-    assert [e["chunk_id"] for e in out] == ["c1", "c2", "c3"]  # 去重保序 + 帽截断
+def test_map_memo_refs_maps_known_strips_unknown() -> None:
+    memo = "营收下降〔lpz-ar-2024:15〕；净利未知〔ghost:1〕。"
+    assert map_memo_refs(memo, {"lpz-ar-2024:15": 3}) == "营收下降[3]；净利未知。"
 
 
 def test_merge_findings_orders_dedups_numbers() -> None:
@@ -74,85 +79,239 @@ def test_merge_findings_orders_dedups_numbers() -> None:
         "aspect_id": "r1",
         "name": "甲",
         "summary": "s1",
-        "evidence": [
-            {"chunk_id": "c1", "source_id": "s", "page": 1, "text": "一"},
-        ],
+        "evidence": [{"chunk_id": "c1", "source_id": "s", "page": 1, "text": "一"}],
     }
-    evidence, sections = merge_findings([f_r2, f_r1])  # 乱序输入
+    evidence, sections = merge_findings([f_r2, f_r1])
     assert [s["aspect_id"] for s in sections] == ["r1", "r2"]
-    assert [e["chunk_id"] for e in evidence] == ["c1", "c9"]  # r1 先编号，跨方面去重
+    assert [e["chunk_id"] for e in evidence] == ["c1", "c9"]
     assert sections[0]["refs"] == [1]
     assert sections[1]["refs"] == [2, 1]
 
 
-def test_render_evidence_lines_format() -> None:
-    lines = render_evidence_lines(
-        [{"chunk_id": "c", "source_id": "lpz-ar-2024", "page": 8, "text": "营收"}]
-    )
-    assert lines == "[1] (lpz-ar-2024 p8) 营收"
+def test_retrying_struct_survives_none_returns() -> None:
+    """function_calling 偶发拒调（解析 None）→ 重试语义：None、None、成功；耗尽报错。"""
+    from argus_lg.graph import RetryingStruct
+
+    calls = {"n": 0}
+
+    class FlakyRunnable:
+        def invoke(self, _msgs: object):
+            calls["n"] += 1
+            return None if calls["n"] < 3 else AspectPlan(aspects=[_spec("甲"), _spec("乙")])
+
+    class FlakyChat:
+        def with_structured_output(self, model_cls, method=None):
+            assert method == "function_calling"
+            return FlakyRunnable()
+
+    out = RetryingStruct(FlakyChat(), AspectPlan).invoke("任意消息")
+    assert calls["n"] == 3  # 前两次 None 被重试吃掉
+    assert len(out.aspects) == 2
+
+    class AlwaysNone:
+        def with_structured_output(self, model_cls, method=None):
+            return type("R", (), {"invoke": staticmethod(lambda _m: None)})()
+
+    with pytest.raises(ValueError, match="空返回"):
+        RetryingStruct(AlwaysNone(), AspectPlan).invoke("任意消息")
 
 
-def test_graph_end_to_end_with_fakes() -> None:
-    # 调用序：小结 r1、小结 r2、节正文 r1、节正文 r2、边界节
-    chat = FakeListChatModel(
-        responses=["小结甲。", "小结乙。", "财务正文 [1]。", "事件正文 [2]。", "边界说明。"]
-    )
-    factory = scripted_struct_factory(
+def test_merge_findings_same_name_folds_into_one_section() -> None:
+    base = {
+        "aspect_id": "r1",
+        "name": "财务",
+        "summary": "主备忘录",
+        "evidence": [{"chunk_id": "c1", "source_id": "s", "page": 1, "text": "一"}],
+    }
+    followup = {
+        "aspect_id": "f1",
+        "name": "财务",  # 补研同名（iteration-1 章节重复病）
+        "summary": "补研备忘录",
+        "evidence": [
+            {"chunk_id": "c1", "source_id": "s", "page": 1, "text": "一"},
+            {"chunk_id": "c2", "source_id": "s", "page": 2, "text": "二"},
+        ],
+    }
+    evidence, sections = merge_findings([followup, base])
+    assert len(sections) == 1  # 不再重复成章
+    assert sections[0]["aspect_id"] == "f1" or sections[0]["aspect_id"] == "r1"
+    assert "【补充研究】" in sections[0]["summary"]
+    assert "补研备忘录" in sections[0]["summary"]
+    assert sorted(sections[0]["refs"]) == [1, 2]
+    assert len(evidence) == 2
+
+
+def test_render_helpers() -> None:
+    ref = {"chunk_id": "a:0", "source_id": "lpz-ar-2024", "page": 8, "text": "营收"}
+    assert render_by_chunk_id([ref]) == "〔a:0〕 (lpz-ar-2024 p8) 营收"
+    assert render_evidence_subset([ref], [1, 1]) == "[1] (lpz-ar-2024 p8) 营收"
+
+    with_sec = {**ref, "section": "母公司资产负债表"}
+    assert render_by_chunk_id([with_sec]) == "〔a:0〕 (lpz-ar-2024 p8 · 母公司资产负债表) 营收"
+    assert render_evidence_subset([with_sec], [1]) == "[1] (lpz-ar-2024 p8 · 母公司资产负债表) 营收"
+
+
+def _happy_factory() -> type:
+    return scripted_struct_factory(
         {
-            AspectPlan: [
-                AspectPlan(
-                    aspects=[
-                        AspectSpec(name="财务", focus="营收变化"),
-                        AspectSpec(name="事件", focus="重大舆情"),
-                    ]
-                )
+            AspectPlan: [AspectPlan(aspects=[_spec("财务"), _spec("事件")])],
+            QueryList: [QueryList(queries=["查A"]), QueryList(queries=["查B"])],
+            Reflection: [
+                Reflection(done=True, core_chunk_ids=["c-查A"], queries=[], gaps=[]),
+                Reflection(done=True, core_chunk_ids=["c-查B"], queries=[], gaps=[]),
             ],
-            QueryList: [QueryList(queries=["查A1", "查A2"]), QueryList(queries=["查B1"])],
+            ReviewVerdict: [ReviewVerdict(need_more=False, followups=[])],
         }
     )
 
+
+def _search(query: str, slug: str, k: int) -> list[Document]:
+    assert k == 12
+    return [_doc(f"c-{query}", f"{query} 的证据")]
+
+
+def test_graph_end_to_end_happy_path() -> None:
+    # chat 序：digest r1、digest r2、节 r1、节 r2、要点、关联、风险、边界
+    chat = FakeListChatModel(
+        responses=[
+            "备忘录甲：事实〔c-查A〕。",
+            "备忘录乙：事实〔c-查B〕。",
+            "冲突核对：无。",
+            "节甲正文 [1]。",
+            "节乙正文 [2]。",
+            "要点。",
+            "关联。",
+            "风险。",
+            "边界。",
+        ]
+    )
+    graph = build_graph(chat, _search, struct_factory=_happy_factory()).compile()
+    out = graph.invoke({"company": "测试公司", "slug": "t"})
+
+    assert len(out["findings"]) == 2
+    assert len(out["evidence"]) == 2
+    assert out["revised"] is True
+    rpt = out["report"]
+    assert rpt.startswith("# 测试公司 尽调报告")
+    for heading in (
+        "## 投资要点",
+        "## 财务",
+        "## 事件",
+        "## 跨方面关联分析",
+        "## 风险因素",
+        "## 证据不足与边界",
+    ):
+        assert heading in rpt
+    assert "节甲正文 [1]。" in rpt
+    assert rpt.endswith("边界。")
+
+
+def test_researcher_multi_round_accumulates_and_follows_gap_queries() -> None:
+    seen_queries: list[str] = []
+
     def search(query: str, slug: str, k: int) -> list[Document]:
-        assert slug == "t"
-        assert k == 12
+        seen_queries.append(query)
         return [_doc(f"c-{query}", f"{query} 的证据")]
 
+    factory = scripted_struct_factory(
+        {
+            AspectPlan: [AspectPlan(aspects=[_spec("财务"), _spec("事件")])],
+            QueryList: [QueryList(queries=["初查"]), QueryList(queries=["查B"])],
+            Reflection: [
+                # r1 第一轮：未完成，派补查
+                Reflection(
+                    done=False, core_chunk_ids=["c-初查"], queries=["补查"], gaps=["缺 2024"]
+                ),
+                # r1 第二轮：完成，核心集含两轮证据
+                Reflection(done=True, core_chunk_ids=["c-初查", "c-补查"], queries=[], gaps=[]),
+                # r2 一轮完成
+                Reflection(done=True, core_chunk_ids=["c-查B"], queries=[], gaps=[]),
+            ],
+            ReviewVerdict: [ReviewVerdict(need_more=False, followups=[])],
+        }
+    )
+    # chat 序：r1 digest×2、r2 digest×1、冲突核对、节×2、要点、关联、风险、边界
+    chat = FakeListChatModel(
+        responses=[
+            "备1〔c-初查〕",
+            "备1v2〔c-初查〕〔c-补查〕",
+            "备2〔c-查B〕",
+            "冲突核对：无。",
+            "节1 [1][2]。",
+            "节2 [3]。",
+            "要",
+            "联",
+            "险",
+            "界",
+        ]
+    )
     graph = build_graph(chat, search, struct_factory=factory).compile()
     out = graph.invoke({"company": "测试公司", "slug": "t"})
 
-    assert [a["aspect_id"] for a in out["aspects"]] == ["r1", "r2"]
-    assert len(out["findings"]) == 2
-    assert {f["summary"] for f in out["findings"]} == {"小结甲。", "小结乙。"}
-    assert len(out["evidence"]) == 3  # 3 条查询 3 个不同 chunk，全局编号 1..3
-    assert [s["aspect_id"] for s in out["sections"]] == ["r1", "r2"]
-    assert out["report"].startswith("# 测试公司 尽调报告")
-    assert "## 财务" in out["report"]
-    assert "财务正文 [1]。" in out["report"]
-    assert "事件正文 [2]。" in out["report"]
-    assert out["report"].endswith("## 证据不足与边界\n边界说明。")
+    assert "补查" in seen_queries  # 缺口查询真的被执行
+    r1 = next(f for f in out["findings"] if f["aspect_id"] == "r1")
+    assert [e["chunk_id"] for e in r1["evidence"]] == ["c-初查", "c-补查"]  # 两轮累积
+    assert len(out["evidence"]) == 3
 
 
-def test_graph_zero_evidence_skips_summarize_llm() -> None:
-    # 只留边界节一条响应：summarize 与节正文若偷调 LLM 必因队列耗尽而炸
-    chat = FakeListChatModel(responses=["边界说明。"])
+def test_review_dispatches_followup_once() -> None:
     factory = scripted_struct_factory(
         {
-            AspectPlan: [
-                AspectPlan(
-                    aspects=[
-                        AspectSpec(name="甲", focus="f"),
-                        AspectSpec(name="乙", focus="f"),
-                    ]
-                )
+            AspectPlan: [AspectPlan(aspects=[_spec("财务"), _spec("事件")])],
+            QueryList: [
+                QueryList(queries=["查A"]),
+                QueryList(queries=["查B"]),
+                QueryList(queries=["查补"]),  # 补研 researcher 的首轮查询
             ],
-            QueryList: [QueryList(queries=["空1"]), QueryList(queries=["空2"])],
+            Reflection: [
+                Reflection(done=True, core_chunk_ids=["c-查A"], queries=[], gaps=[]),
+                Reflection(done=True, core_chunk_ids=["c-查B"], queries=[], gaps=[]),
+                Reflection(done=True, core_chunk_ids=["c-查补"], queries=[], gaps=[]),
+            ],
+            ReviewVerdict: [ReviewVerdict(need_more=True, followups=[_spec("上市进程")])],
         }
     )
+    # chat 序：digest×2 → (复审补派) digest×1 → 冲突核对 → 节×3 → 要点、关联、风险、边界
+    chat = FakeListChatModel(
+        responses=[
+            "备A〔c-查A〕",
+            "备B〔c-查B〕",
+            "备补〔c-查补〕",
+            "冲突核对：无。",
+            "节A [1]。",
+            "节B [2]。",
+            "节补 [3]。",
+            "要",
+            "联",
+            "险",
+            "界",
+        ]
+    )
+    graph = build_graph(chat, _search, struct_factory=factory).compile()
+    out = graph.invoke({"company": "测试公司", "slug": "t"})
 
+    assert len(out["findings"]) == 3
+    assert {f["aspect_id"] for f in out["findings"]} == {"r1", "r2", "f1"}
+    assert "## 上市进程" in out["report"]
+    assert not factory.queues[ReviewVerdict]  # 复审只做一轮：verdict 恰消费一次
+    assert out["followup_aspects"] == []  # 第二次 review 清空补派
+
+
+def test_zero_evidence_skips_llm_calls() -> None:
+    factory = scripted_struct_factory(
+        {
+            AspectPlan: [AspectPlan(aspects=[_spec("甲"), _spec("乙")])],
+            QueryList: [QueryList(queries=["空1"]), QueryList(queries=["空2"])],
+            Reflection: [],  # 零证据不许消费自评
+            ReviewVerdict: [ReviewVerdict(need_more=False, followups=[])],
+        }
+    )
+    # 冲突核对 + 四个终稿调用；节正文零调用（零证据节直接放占位）
+    chat = FakeListChatModel(responses=["冲突核对：无。", "要", "联", "险", "界"])
     graph = build_graph(chat, lambda q, s, k: [], struct_factory=factory).compile()
     out = graph.invoke({"company": "测试公司", "slug": "t"})
 
     assert all("证据不足" in f["summary"] for f in out["findings"])
     assert out["evidence"] == []
-    assert out["report"].startswith("# 测试公司 尽调报告")
-    assert "证据不足：检索未命中相关语料。" in out["report"]  # 零证据节正文=小结占位
-    assert out["report"].endswith("## 证据不足与边界\n边界说明。")
+    assert "证据不足：检索未命中相关语料。" in out["report"]
+    assert out["report"].endswith("界")

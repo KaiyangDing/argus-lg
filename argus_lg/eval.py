@@ -214,7 +214,8 @@ def eval_case(case: dict, report: str, evidence: list[dict], judge: JudgeFn) -> 
         if not refs:
             continue
         ev_lines = "\n".join(
-            f"[{r}] ({evidence[r - 1]['source_id']} p{evidence[r - 1]['page']}) "
+            f"[{r}] ({evidence[r - 1]['source_id']} p{evidence[r - 1]['page']}"
+            f"{' · ' + str(evidence[r - 1].get('section', '')) if evidence[r - 1].get('section') else ''}) "
             f"{evidence[r - 1]['text']}"
             for r in refs
         )

@@ -15,7 +15,7 @@ from langchain_core.callbacks import UsageMetadataCallbackHandler
 from langchain_core.vectorstores import InMemoryVectorStore
 from langgraph.checkpoint.memory import MemorySaver
 
-from argus_lg.corpus import COMPANIES, read_jsonl
+from argus_lg.corpus import COMPANIES, corpus_profile, read_jsonl
 from argus_lg.graph import build_graph
 from argus_lg.llm import estimate_yuan, make_chat
 from argus_lg.retrieval import make_embeddings, make_hybrid_search
@@ -37,16 +37,23 @@ def main() -> None:
     store = InMemoryVectorStore.load(
         str(REPO / "corpus" / "derived" / "vectors.json"), make_embeddings()
     )
-    graph = build_graph(make_chat(), make_hybrid_search(rows, store)).compile(
-        checkpointer=MemorySaver()
-    )
+    graph = build_graph(
+        make_chat(),
+        make_hybrid_search(rows, store),
+        profile_fn=lambda s: corpus_profile(rows, s),
+    ).compile(checkpointer=MemorySaver())
 
     usage_cb = UsageMetadataCallbackHandler()
+    config = {"configurable": {"thread_id": slug}, "callbacks": [usage_cb]}
     t0 = time.perf_counter()
-    state = graph.invoke(
-        {"company": COMPANIES[slug], "slug": slug},
-        config={"configurable": {"thread_id": slug}, "callbacks": [usage_cb]},
-    )
+    # 流式节点进度：黑洞事故后 CLI 必须实时可观测（print 全部 flush）
+    print("执行进度：", flush=True)
+    for chunk in graph.stream(
+        {"company": COMPANIES[slug], "slug": slug}, config=config, stream_mode="updates"
+    ):
+        for node in chunk:
+            print(f"  [{time.perf_counter() - t0:5.0f}s] {node} 完成", flush=True)
+    state = graph.get_state(config).values
     elapsed = time.perf_counter() - t0
 
     print(f"\n方面：{[a['name'] for a in state['aspects']]}")
